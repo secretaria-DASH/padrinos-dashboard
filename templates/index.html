@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Padrinos · Más Allá</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+:root {
+  --orange:    #F5A623;
+  --orange-dk: #D4881A;
+  --orange-bg: rgba(245,166,35,.11);
+  --orange-bg2:rgba(245,166,35,.06);
+  --black:     #111111;
+  --black2:    #1A1A1A;
+  --black3:    #242424;
+  --black4:    #2E2E2E;
+  --border:    #353535;
+  --text:      #F0F0F0;
+  --text2:     #888;
+  --green:     #5CD07A;
+  --red:       #F26B6B;
+  --blue:      #60a5fa;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --r: 12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--black);color:var(--text);font-family:var(--font);min-height:100vh}
+
+/* ── Layout ── */
+.layout{display:grid;grid-template-columns:224px 1fr;min-height:100vh}
+
+/* ── Sidebar ── */
+.sidebar{
+  background:var(--black2);border-right:1px solid var(--border);
+  padding:18px 13px;display:flex;flex-direction:column;gap:20px;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.logo-block{display:flex;flex-direction:column;align-items:center;gap:5px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.logo-img{width:78px;height:78px;object-fit:contain;border-radius:50%}
+.logo-name{font-size:12px;font-weight:800;color:var(--orange);letter-spacing:.5px}
+.logo-sub{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px}
+
+.nav-section{display:flex;flex-direction:column;gap:2px}
+.nav-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text2);margin-bottom:4px;padding-left:5px}
+.nav-btn{
+  padding:8px 10px;border-radius:8px;border:none;background:transparent;
+  color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer;
+  text-align:left;display:flex;align-items:center;gap:7px;transition:all .15s;font-weight:500;
+}
+.nav-btn:hover{background:var(--black3);color:var(--text)}
+.nav-btn.active{background:var(--orange-bg);color:var(--orange)}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* Brevo status pill */
+.api-pill{
+  display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;
+  border:1px solid var(--border);font-size:11px;color:var(--text2);cursor:pointer;
+  transition:all .15s;background:transparent;font-family:var(--font);width:100%;
+}
+.api-pill:hover{border-color:var(--orange);color:var(--text)}
+.api-dot{width:7px;height:7px;border-radius:50%;background:var(--border);flex-shrink:0}
+.api-dot.connected{background:var(--green)}
+.api-dot.error{background:var(--red)}
+
+.sync-btn{
+  width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--text2);font-size:12px;font-family:var(--font);
+  cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .15s;font-weight:500;
+}
+.sync-btn:hover{border-color:var(--orange);color:var(--orange)}
+.sync-btn.spinning .sync-icon{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.upload-area{
+  border:2px dashed var(--border);border-radius:10px;padding:14px;
+  text-align:center;cursor:pointer;transition:all .2s;position:relative;
+}
+.upload-area:hover,.upload-area.dragging{border-color:var(--orange);background:var(--orange-bg2)}
+.upload-area input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:20px;margin-bottom:4px}
+.upload-text{font-size:11px;color:var(--text2);line-height:1.5}
+.upload-text strong{color:var(--orange)}
+
+/* ── Main ── */
+.main{padding:28px;display:flex;flex-direction:column;gap:20px;overflow-x:hidden;min-width:0}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.page-title{font-size:22px;font-weight:800}
+.page-subtitle{font-size:12px;color:var(--text2);margin-top:3px}
+.view-tabs{display:flex;gap:3px;background:var(--black2);border-radius:9px;padding:3px;border:1px solid var(--border)}
+.view-tab{padding:6px 15px;border-radius:7px;border:none;background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:var(--font);font-weight:600;transition:all .15s;white-space:nowrap}
+.view-tab.active{background:var(--orange);color:#111;font-weight:700}
+
+/* ── KPIs ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi-card{
+  background:var(--black2);border:1px solid var(--border);border-radius:var(--r);
+  padding:18px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s;
+}
+.kpi-card:hover{border-color:var(--orange);transform:translateY(-2px)}
+.kpi-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 var(--r) var(--r);opacity:.8}
+.kpi-card.c1::after{background:var(--orange)}
+.kpi-card.c2::after{background:#4ecdc4}
+.kpi-card.c3::after{background:var(--green)}
+.kpi-card.c4::after{background:#a78bfa}
+.kpi-label{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.9px;font-weight:700}
+.kpi-value{font-size:30px;font-weight:800;margin:5px 0 2px;line-height:1}
+.kpi-sub{font-size:11px;color:var(--text2)}
+.kpi-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-top:6px}
+.kpi-badge.up{background:rgba(92,208,122,.12);color:var(--green)}
+.kpi-badge.down{background:rgba(242,107,107,.12);color:var(--red)}
+.kpi-badge.neutral{background:rgba(136,136,136,.12);color:var(--text2)}
+
+/* ── Chart cards ── */
+.charts-row{display:grid;gap:12px}
+.charts-row.two{grid-template-columns:1fr 1fr}
+.chart-card{background:var(--black2);border:1px solid var(--border);border-radius:var(--r);padding:18px}
+.chart-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.chart-title{font-size:13px;font-weight:700}
+.chart-subtitle{font-size:11px;color:var(--text2);margin-top:2px}
+.chart-wrap{position:relative;height:210px}
+.chart-wrap.tall{height:265px}
+.chart-wrap.xtall{height:320px}
+
+/* ── Month pills ── */
+.month-selector{display:flex;gap:7px;flex-wrap:wrap}
+.month-pill{
+  padding:7px 18px;border-radius:20px;border:1.5px solid var(--border);
+  background:transparent;color:var(--text2);font-size:12px;cursor:pointer;
+  font-family:var(--font);font-weight:600;transition:all .15s;
+}
+.month-pill:hover{border-color:var(--text2);color:var(--text)}
+.month-pill.active{border-color:var(--orange);background:var(--orange-bg);color:var(--orange)}
+
+/* ── Detail layout ── */
+.detail-outer{display:grid;grid-template-columns:1fr 420px;gap:14px;align-items:start}
+.detail-left{display:flex;flex-direction:column;gap:12px}
+.detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.detail-section{background:var(--black2);border:1px solid var(--border);border-radius:var(--r);padding:18px}
+.detail-section-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--orange);margin-bottom:12px}
+.metric-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)}
+.metric-row:last-child{border-bottom:none}
+.metric-name{font-size:12px;color:var(--text2)}
+.metric-val{font-size:14px;font-weight:700}
+.metric-val.good{color:var(--green)}
+.metric-val.warn{color:var(--orange)}
+.metric-val.bad{color:var(--red)}
+
+/* ── Email preview panel ── */
+.preview-panel{
+  background:var(--black2);border:1px solid var(--border);border-radius:var(--r);
+  display:flex;flex-direction:column;overflow:hidden;height:fit-content;
+  position:sticky;top:28px;
+}
+.preview-header{
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.preview-title{font-size:12px;font-weight:700}
+.preview-meta{font-size:11px;color:var(--text2);margin-top:2px}
+.preview-actions{display:flex;gap:6px}
+.preview-btn{
+  padding:5px 11px;border-radius:7px;border:1px solid var(--border);
+  background:transparent;color:var(--text2);font-size:11px;cursor:pointer;
+  font-family:var(--font);font-weight:600;transition:all .15s;
+}
+.preview-btn:hover{border-color:var(--orange);color:var(--orange)}
+.preview-btn.primary{background:var(--orange);color:#111;border-color:var(--orange)}
+.preview-btn.primary:hover{background:var(--orange-dk)}
+
+.preview-iframe-wrap{
+  position:relative;background:#fff;
+  height:600px;overflow:hidden;
+}
+.preview-iframe-wrap iframe{
+  width:100%;height:100%;border:none;display:block;
+}
+.preview-loading{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;background:#fff;color:#555;font-size:13px;
+}
+.preview-spinner{
+  width:32px;height:32px;border:3px solid #eee;border-top-color:var(--orange);
+  border-radius:50%;animation:spin .7s linear infinite;
+}
+.preview-no-key{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:32px;text-align:center;color:var(--text2);font-size:13px;min-height:200px;
+}
+.preview-no-key .icon{font-size:32px}
+.preview-scale{
+  display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--border);
+}
+.preview-scale label{font-size:11px;color:var(--text2);white-space:nowrap}
+.preview-scale input{flex:1;accent-color:var(--orange)}
+.preview-scale span{font-size:11px;color:var(--text2);width:32px;text-align:right}
+
+/* ── Table ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead{background:var(--black3)}
+th{padding:10px 13px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.9px;color:var(--text2);font-weight:700;white-space:nowrap}
+td{padding:11px 13px;border-bottom:1px solid var(--border);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.td-month{font-weight:700}
+.badge-good{background:rgba(92,208,122,.1);color:var(--green);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.badge-warn{background:rgba(245,166,35,.12);color:var(--orange);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.badge-bad{background:rgba(242,107,107,.1);color:var(--red);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+
+/* ── Insights ── */
+.insights-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.insight-card{background:var(--black3);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;gap:10px;transition:border-color .15s}
+.insight-card:hover{border-color:var(--orange)}
+.insight-icon{font-size:20px;flex-shrink:0}
+.insight-title{font-size:11px;font-weight:700;margin-bottom:3px}
+.insight-text{font-size:11px;color:var(--text2);line-height:1.55}
+.hl{color:var(--orange);font-weight:700}
+
+/* ── Comparar: legend chips ── */
+.legend-chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.legend-chip{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;border:1.5px solid}
+
+/* ── Settings modal ── */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.75);
+  display:none;align-items:center;justify-content:center;z-index:200;
+}
+.modal-bg.open{display:flex}
+.modal{
+  background:var(--black2);border:1px solid var(--border);border-radius:16px;
+  padding:28px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);
+}
+.modal-title{font-size:17px;font-weight:800;margin-bottom:4px}
+.modal-sub{font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.5}
+.modal label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);display:block;margin-bottom:6px}
+.modal input[type=text],.modal input[type=password]{
+  width:100%;background:var(--black3);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;
+  transition:border-color .15s;
+}
+.modal input:focus{border-color:var(--orange)}
+.modal-actions{display:flex;gap:8px;margin-top:20px;justify-content:flex-end}
+.btn{padding:9px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:13px;cursor:pointer;font-family:var(--font);font-weight:600;transition:all .15s}
+.btn:hover{border-color:var(--text);color:var(--text)}
+.btn.primary{background:var(--orange);color:#111;border-color:var(--orange)}
+.btn.primary:hover{background:var(--orange-dk)}
+.modal-status{margin-top:12px;font-size:12px;padding:8px 12px;border-radius:8px;display:none}
+.modal-status.ok{background:rgba(92,208,122,.1);color:var(--green);display:block}
+.modal-status.err{background:rgba(242,107,107,.1);color:var(--red);display:block}
+
+/* ── Toast ── */
+#toast{
+  position:fixed;bottom:20px;right:20px;background:var(--black2);border:1px solid var(--border);
+  border-radius:10px;padding:12px 18px;font-size:12px;box-shadow:0 4px 20px rgba(0,0,0,.5);
+  transform:translateY(60px);opacity:0;transition:all .3s;z-index:999;max-width:300px;
+}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.success{border-color:var(--green)}
+#toast.error{border-color:var(--red)}
+
+/* Loading overlay */
+.loading-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:100}
+.spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin .7s linear infinite}
+
+@media(max-width:1200px){
+  .detail-outer{grid-template-columns:1fr}
+  .preview-panel{position:static}
+  .preview-iframe-wrap{height:500px}
+}
+@media(max-width:1000px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.charts-row.two{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr}.insights-grid{grid-template-columns:1fr}}
+@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{display:none}}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+<div id="toast"></div>
+
+<!-- ── Settings modal ── -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <div class="modal-title">Conectar con Brevo</div>
+    <div class="modal-sub">Pegá tu API key de Brevo para sincronizar datos y previsualizar emails directamente desde la plataforma.<br>La encontrás en <strong style="color:var(--orange)">Brevo → Configuración → API keys</strong>.</div>
+    <label>API Key de Brevo</label>
+    <input type="password" id="apiKeyInput" placeholder="xkeysib-xxxxxxxxxxxxxxxx..." autocomplete="off">
+    <div class="modal-status" id="modalStatus"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeSettings()">Cancelar</button>
+      <button class="btn" onclick="testBrevo()" id="testBtn">Probar conexión</button>
+      <button class="btn primary" onclick="saveSettings()" id="saveBtn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="logo-block">
+      <img src="/static/logo-masalla.jpg" alt="Más Allá" class="logo-img">
+      <div class="logo-name">MÁS ALLÁ</div>
+      <div class="logo-sub">Dashboard Padrinos</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Vistas</div>
+      <button class="nav-btn active" onclick="switchView('general')" id="btn-general">📊 Vista general</button>
+      <button class="nav-btn" onclick="switchView('mes')" id="btn-mes">📅 Por mes</button>
+      <button class="nav-btn" onclick="switchView('comparar')" id="btn-comparar">⚡ Comparar meses</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Campañas</div>
+      <div id="sidebar-campaigns"></div>
+    </div>
+
+    <div class="nav-section" style="margin-top:auto">
+      <div class="nav-label">Brevo</div>
+      <button class="api-pill" id="apiPill" onclick="openSettings()">
+        <span class="api-dot" id="apiDot"></span>
+        <span id="apiPillText">Configurar API key</span>
+      </button>
+      <button class="sync-btn" id="syncBtn" onclick="syncBrevo()">
+        <span class="sync-icon">🔄</span>
+        <span>Sincronizar datos</span>
+      </button>
+    </div>
+
+    <div>
+      <div class="nav-label" style="margin-bottom:8px">Nueva campaña</div>
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="fileInput" accept=".pdf" onchange="handleFileUpload(this.files[0])">
+        <div class="upload-icon">📄</div>
+        <div class="upload-text"><strong>Subí el PDF</strong> de Brevo<br>o arrastrá aquí</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <div class="page-header">
+      <div>
+        <div class="page-title" id="pageTitle">Vista General</div>
+        <div class="page-subtitle" id="pageSubtitle">Comparativa de todas las campañas de Padrinos</div>
+      </div>
+      <div class="view-tabs">
+        <button class="view-tab active" onclick="switchView('general')">General</button>
+        <button class="view-tab" onclick="switchView('mes')">Por mes</button>
+        <button class="view-tab" onclick="switchView('comparar')">Comparar</button>
+      </div>
+    </div>
+
+    <!-- ═══ GENERAL ═══ -->
+    <div id="view-general">
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="charts-row two">
+        <div class="chart-card">
+          <div class="chart-header"><div><div class="chart-title">Tasas de apertura y clics</div><div class="chart-subtitle">Evolución mensual (%)</div></div></div>
+          <div class="chart-wrap tall"><canvas id="chartRates"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><div><div class="chart-title">Entregabilidad</div><div class="chart-subtitle">Enviadas · Entregadas · Aperturas</div></div></div>
+          <div class="chart-wrap tall"><canvas id="chartDelivery"></canvas></div>
+        </div>
+      </div>
+      <div class="charts-row two">
+        <div class="chart-card">
+          <div class="chart-header"><div><div class="chart-title">Aperturas únicas vs. totales</div><div class="chart-subtitle">Incluye reaperturas y Apple MPP</div></div></div>
+          <div class="chart-wrap"><canvas id="chartAperturas"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><div><div class="chart-title">Clics únicos y Click-to-Open</div><div class="chart-subtitle">Engagement de quienes abrieron</div></div></div>
+          <div class="chart-wrap"><canvas id="chartClics"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">Insights automáticos</div></div>
+        <div class="insights-grid" id="insightsGrid"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">Tabla comparativa completa</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Mes</th><th>Enviadas</th><th>Entregadas</th><th>Índice entrega</th>
+              <th>Aperturas</th><th>Tasa apertura</th><th>Clics únicos</th>
+              <th>CTR</th><th>CTOR</th><th>Soft bounces</th>
+            </tr></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ POR MES ═══ -->
+    <div id="view-mes" style="display:none">
+      <div class="month-selector" id="monthSelector"></div>
+      <div class="detail-outer" id="detailOuter" style="margin-top:14px">
+        <!-- left: metrics -->
+        <div class="detail-left" id="monthDetail"></div>
+        <!-- right: email preview -->
+        <div class="preview-panel" id="previewPanel">
+          <div class="preview-header">
+            <div>
+              <div class="preview-title">Preview del email</div>
+              <div class="preview-meta" id="previewMeta">Seleccioná un mes para ver el email</div>
+            </div>
+            <div class="preview-actions">
+              <button class="preview-btn" id="previewRefreshBtn" onclick="loadEmailPreview()" style="display:none">↺ Recargar</button>
+              <button class="preview-btn primary" id="previewOpenBtn" onclick="openEmailFullscreen()" style="display:none">↗ Pantalla completa</button>
+            </div>
+          </div>
+          <div class="preview-iframe-wrap" id="previewWrap">
+            <div class="preview-no-key" id="previewNoKey">
+              <div class="icon">🔌</div>
+              <div style="font-weight:700;color:var(--text)">Conectá tu API de Brevo</div>
+              <div>Para ver el preview del email<br>configurá la API key de Brevo</div>
+              <button class="btn primary" onclick="openSettings()" style="margin-top:4px">Configurar API key</button>
+            </div>
+            <div class="preview-loading" id="previewLoading" style="display:none">
+              <div class="preview-spinner"></div>
+              <div>Cargando email...</div>
+            </div>
+            <iframe id="emailIframe" src="about:blank" sandbox="allow-same-origin allow-scripts" style="display:none"></iframe>
+          </div>
+          <div class="preview-scale">
+            <label>Zoom:</label>
+            <input type="range" min="30" max="100" value="70" id="zoomSlider" oninput="setZoom(this.value)">
+            <span id="zoomLabel">70%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ COMPARAR ═══ -->
+    <div id="view-comparar" style="display:none">
+      <div class="chart-card">
+        <div class="chart-header"><div><div class="chart-title">Comparación de métricas clave</div><div class="chart-subtitle">Tasa apertura · CTR · CTOR · Entregabilidad — todos los meses</div></div></div>
+        <div id="comparLegend" class="legend-chips"></div>
+        <div class="chart-wrap xtall"><canvas id="chartGrouped"></canvas></div>
+      </div>
+      <div class="charts-row two">
+        <div class="chart-card">
+          <div class="chart-header"><div><div class="chart-title">Tasa de apertura por mes</div><div class="chart-subtitle">% sobre entregadas</div></div></div>
+          <div class="chart-wrap"><canvas id="chartBarApertura"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><div><div class="chart-title">CTR por mes</div><div class="chart-subtitle">Click-through rate (%)</div></div></div>
+          <div class="chart-wrap"><canvas id="chartBarCtr"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div><div class="chart-title">Click-to-Open Rate (CTOR)</div><div class="chart-subtitle">De quienes abrieron, ¿cuántos hicieron clic? — el engagement más puro</div></div></div>
+        <div class="chart-wrap"><canvas id="chartCtor"></canvas></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div><div class="chart-title">Insights comparativos</div><div class="chart-subtitle">Análisis automático entre todos los meses</div></div>
+        </div>
+        <div class="insights-grid" id="compareInsightsGrid"></div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<script>
+Chart.register(ChartDataLabels);
+
+const ORANGE = '#F5A623';
+const MONTH_COLORS = ['#F5A623','#4ecdc4','#a78bfa','#f26b6b','#34d399','#60a5fa','#fb923c','#e879f9'];
+const TT  = {backgroundColor:'#1A1A1A',borderColor:'#353535',borderWidth:1,titleColor:'#F0F0F0',bodyColor:'#888',padding:11};
+const GC  = '#252525';
+const TC  = '#888';
+const xA  = {ticks:{color:TC,font:{size:11}},grid:{color:GC},border:{color:'#353535'}};
+const yA  = {ticks:{color:TC,font:{size:11}},grid:{color:GC},border:{color:'#353535'}};
+
+let campaigns = [];
+let selectedMonth = null;
+let charts = {};
+let hasApiKey = false;
+let currentBrevoId = null;
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
+function avg(arr,k){return arr.reduce((s,c)=>s+(c[k]||0),0)/arr.length}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+async function boot(){
+  await checkApiStatus();
+  await fetchCampaigns();
+}
+
+async function checkApiStatus(){
+  try{
+    const r = await fetch('/api/settings');
+    const d = await r.json();
+    hasApiKey = d.has_key;
+    const dot  = document.getElementById('apiDot');
+    const text = document.getElementById('apiPillText');
+    if(hasApiKey){
+      dot.className = 'api-dot connected';
+      text.textContent = `Brevo conectado (${d.key_preview})`;
+    } else {
+      dot.className = 'api-dot';
+      text.textContent = 'Configurar API key';
+    }
+  }catch(e){}
+}
+
+async function fetchCampaigns(){
+  const r = await fetch('/api/campaigns');
+  campaigns = await r.json();
+  if(!selectedMonth && campaigns.length) selectedMonth = campaigns[campaigns.length-1].id;
+  render();
+}
+
+function render(){
+  renderSidebar();
+  renderKPIs();
+  renderMainCharts();
+  renderTable();
+  renderInsights();
+  renderMonthSelector();
+  renderMonthDetail();
+  renderCompareView();
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function renderSidebar(){
+  document.getElementById('sidebar-campaigns').innerHTML = campaigns.map((c,i)=>`
+    <button class="nav-btn" onclick="jumpToMonth('${c.id}')">
+      <span class="dot" style="background:${MONTH_COLORS[i%MONTH_COLORS.length]}"></span>
+      <span>${c.mes}</span>
+    </button>`).join('');
+}
+function jumpToMonth(id){selectedMonth=id;switchView('mes')}
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+function renderKPIs(){
+  if(!campaigns.length) return;
+  const last = campaigns[campaigns.length-1];
+  const prev = campaigns.length>1 ? campaigns[campaigns.length-2] : null;
+  function badge(c,p){
+    if(!p) return '';
+    const d=(c-p).toFixed(1);
+    if(Math.abs(d)<0.1) return `<span class="kpi-badge neutral">→ sin cambio</span>`;
+    return d>0 ? `<span class="kpi-badge up">▲ +${d}%</span>` : `<span class="kpi-badge down">▼ ${d}%</span>`;
+  }
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi-card c1">
+      <div class="kpi-label">Tasa de apertura</div>
+      <div class="kpi-value" style="color:${ORANGE}">${last.tasa_apertura}%</div>
+      <div class="kpi-sub">${last.mes} · Prom: ${avg(campaigns,'tasa_apertura').toFixed(1)}%</div>
+      ${badge(last.tasa_apertura,prev?.tasa_apertura)}
+    </div>
+    <div class="kpi-card c2">
+      <div class="kpi-label">Click-through rate</div>
+      <div class="kpi-value" style="color:#4ecdc4">${last.ctr}%</div>
+      <div class="kpi-sub">${last.mes} · Prom: ${avg(campaigns,'ctr').toFixed(1)}%</div>
+      ${badge(last.ctr,prev?.ctr)}
+    </div>
+    <div class="kpi-card c3">
+      <div class="kpi-label">Índice de entrega</div>
+      <div class="kpi-value" style="color:var(--green)">${last.indice_entrega}%</div>
+      <div class="kpi-sub">${last.mes} · Prom: ${avg(campaigns,'indice_entrega').toFixed(1)}%</div>
+      ${badge(last.indice_entrega,prev?.indice_entrega)}
+    </div>
+    <div class="kpi-card c4">
+      <div class="kpi-label">Padrinos activos</div>
+      <div class="kpi-value" style="color:#a78bfa">${last.enviadas}</div>
+      <div class="kpi-sub">${last.mes}</div>
+      ${prev ? badge(last.enviadas,prev.enviadas) : ''}
+    </div>`;
+}
+
+// ── Main charts ───────────────────────────────────────────────────────────────
+function barOpts(extraY){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{labels:{color:TC,font:{size:11},boxWidth:10,padding:14}},
+      tooltip:TT,
+      datalabels:{display:false}
+    },
+    scales:{
+      x:{ticks:{color:TC,font:{size:11}},grid:{color:GC},border:{color:'#353535'}},
+      y:Object.assign({ticks:{color:TC,font:{size:11}},grid:{color:GC},border:{color:'#353535'},beginAtZero:true},extraY||{})
+    }
+  };
+}
+
+function renderMainCharts(){
+  if(!campaigns.length) return;
+  const labels = campaigns.map(c=>c.nombre);
+
+  // ── Line: Rates (apertura / CTR / CTOR) ──
+  destroyChart('chartRates');
+  charts['chartRates'] = new Chart(document.getElementById('chartRates'),{
+    type:'line',
+    data:{labels, datasets:[
+      {label:'Tasa de apertura', data:campaigns.map(c=>c.tasa_apertura),
+       borderColor:ORANGE, backgroundColor:'rgba(245,166,35,.12)',
+       pointBackgroundColor:ORANGE, pointRadius:5, tension:0.4, fill:true, borderWidth:2},
+      {label:'CTR', data:campaigns.map(c=>c.ctr),
+       borderColor:'#4ecdc4', backgroundColor:'rgba(78,205,196,.10)',
+       pointBackgroundColor:'#4ecdc4', pointRadius:5, tension:0.4, fill:true, borderWidth:2},
+      {label:'CTOR', data:campaigns.map(c=>c.click_to_open_rate),
+       borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.07)',
+       pointBackgroundColor:'#a78bfa', pointRadius:5, tension:0.4, fill:true,
+       borderWidth:2, borderDash:[5,3]},
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:TC,font:{size:11},boxWidth:10,padding:14}},
+        tooltip:TT,
+        datalabels:{display:true, align:'top', color:TC, font:{size:10}, formatter:v=>v+'%'}
+      },
+      scales:{
+        x:{ticks:{color:TC,font:{size:11}},grid:{color:GC},border:{color:'#353535'}},
+        y:{ticks:{color:TC,font:{size:11},callback:v=>v+'%'},grid:{color:GC},border:{color:'#353535'}}
+      }
+    }
+  });
+
+  // ── Bar: Entregabilidad ──
+  destroyChart('chartDelivery');
+  charts['chartDelivery'] = new Chart(document.getElementById('chartDelivery'),{
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Enviadas',       data:campaigns.map(c=>c.enviadas),
+       backgroundColor:'rgba(245,166,35,.4)', borderColor:ORANGE, borderWidth:2, borderRadius:5},
+      {label:'Entregadas',     data:campaigns.map(c=>c.entregadas),
+       backgroundColor:'rgba(78,205,196,.4)', borderColor:'#4ecdc4', borderWidth:2, borderRadius:5},
+      {label:'Aperturas únicas',data:campaigns.map(c=>c.aperturas_unicas),
+       backgroundColor:'rgba(92,208,122,.4)', borderColor:'#5CD07A', borderWidth:2, borderRadius:5},
+    ]},
+    options: barOpts()
+  });
+
+  // ── Bar: Aperturas (sin Apple MPP) ──
+  destroyChart('chartAperturas');
+  charts['chartAperturas'] = new Chart(document.getElementById('chartAperturas'),{
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Aperturas únicas', data:campaigns.map(c=>c.aperturas_unicas),
+       backgroundColor:'rgba(245,166,35,.85)', borderRadius:5},
+      {label:'Total aperturas',  data:campaigns.map(c=>c.total_aperturas),
+       backgroundColor:'rgba(245,166,35,.28)', borderRadius:5},
+    ]},
+    options: barOpts()
+  });
+
+  // ── Bar: Clics ──
+  destroyChart('chartClics');
+  charts['chartClics'] = new Chart(document.getElementById('chartClics'),{
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Clics únicos', data:campaigns.map(c=>c.clics_unicos),
+       backgroundColor:'rgba(78,205,196,.85)', borderRadius:5},
+      {label:'Total clics',  data:campaigns.map(c=>c.total_clics),
+       backgroundColor:'rgba(78,205,196,.30)', borderRadius:5},
+    ]},
+    options: barOpts()
+  });
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+function renderTable(){
+  document.getElementById('tableBody').innerHTML = campaigns.map((c,i)=>{
+    const dot=`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${MONTH_COLORS[i%MONTH_COLORS.length]};margin-right:6px"></span>`;
+    const ab=c.tasa_apertura>=60?'badge-good':c.tasa_apertura>=40?'badge-warn':'badge-bad';
+    const cb=c.ctr>=5?'badge-good':c.ctr>=2?'badge-warn':'badge-bad';
+    const eb=c.indice_entrega>=97?'badge-good':c.indice_entrega>=90?'badge-warn':'badge-bad';
+    return `<tr>
+      <td class="td-month">${dot}${c.mes}</td>
+      <td>${c.enviadas}</td><td>${c.entregadas}</td>
+      <td><span class="${eb}">${c.indice_entrega}%</span></td>
+      <td>${c.aperturas_unicas}</td>
+      <td><span class="${ab}">${c.tasa_apertura}%</span></td>
+      <td>${c.clics_unicos}</td>
+      <td><span class="${cb}">${c.ctr}%</span></td>
+      <td>${c.click_to_open_rate}%</td>
+      <td>${c.soft_bounces} (${c.soft_bounces_pct}%)</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Insights ──────────────────────────────────────────────────────────────────
+function renderInsights(){
+  if(campaigns.length<2) return;
+  const best_ap =campaigns.reduce((a,b)=>a.tasa_apertura>b.tasa_apertura?a:b);
+  const best_ctr=campaigns.reduce((a,b)=>a.ctr>b.ctr?a:b);
+  const last=campaigns[campaigns.length-1], prev=campaigns[campaigns.length-2];
+  const trend=last.tasa_apertura-prev.tasa_apertura;
+  const ins=[
+    {icon:trend>=0?'📈':'📉',title:'Tendencia de apertura',text:`La tasa ${trend>=0?'subió':'bajó'} <span class="hl">${Math.abs(trend).toFixed(1)}%</span> de ${prev.nombre} a ${last.nombre}. ${trend>=0?'El contenido conecta con los padrinos.':'Revisar asunto o timing.'}`},
+    {icon:'🏆',title:'Mejor apertura',text:`<span class="hl">${best_ap.mes}</span> tuvo <span class="hl">${best_ap.tasa_apertura}%</span>. Asunto: <em>"${(best_ap.asunto||'').substring(0,50)}"</em>`},
+    {icon:'🎯',title:'Mejor engagement',text:`<span class="hl">${best_ctr.mes}</span> lideró con CTR <span class="hl">${best_ctr.ctr}%</span> y CTOR <span class="hl">${best_ctr.click_to_open_rate}%</span>.`},
+    {icon:'✉️',title:'Entregabilidad',text:`${campaigns.every(c=>c.hard_bounces===0)?'✓ Sin hard bounces. ':''} Índice promedio: <span class="hl">${avg(campaigns,'indice_entrega').toFixed(1)}%</span>.`},
+    {icon:'👥',title:'Crecimiento',text:`Lista: <span class="hl">${campaigns[0].enviadas}</span> → <span class="hl">${last.enviadas}</span> padrinos (+${last.enviadas-campaigns[0].enviadas} en ${campaigns.length} meses).`},
+    {icon:'🍎',title:'Apple MPP',text:`Prom. <span class="hl">${avg(campaigns,'aperturas_apple_mpp').toFixed(0)}</span> aperturas automáticas/mes. Considerar al leer la tasa real.`},
+  ];
+  document.getElementById('insightsGrid').innerHTML=ins.map(i=>`
+    <div class="insight-card"><div class="insight-icon">${i.icon}</div>
+    <div><div class="insight-title">${i.title}</div><div class="insight-text">${i.text}</div></div></div>`).join('');
+}
+
+// ── Month detail + email preview ──────────────────────────────────────────────
+function renderMonthSelector(){
+  document.getElementById('monthSelector').innerHTML=campaigns.map((c,i)=>`
+    <button class="month-pill ${c.id===selectedMonth?'active':''}" onclick="selectMonth('${c.id}')"
+      style="${c.id===selectedMonth?`border-color:${MONTH_COLORS[i%MONTH_COLORS.length]};background:${MONTH_COLORS[i%MONTH_COLORS.length]}22;color:${MONTH_COLORS[i%MONTH_COLORS.length]}`:''}">
+      ${c.mes}
+    </button>`).join('');
+}
+
+function selectMonth(id){
+  selectedMonth=id;
+  renderMonthSelector();
+  renderMonthDetail();
+  if(hasApiKey) loadEmailPreview();
+}
+
+function renderMonthDetail(){
+  if(!selectedMonth) return;
+  const c=campaigns.find(x=>x.id===selectedMonth);
+  if(!c) return;
+  const i=campaigns.indexOf(c), col=MONTH_COLORS[i%MONTH_COLORS.length];
+  currentBrevoId=c.brevo_id||null;
+
+  document.getElementById('monthDetail').innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="width:42px;height:42px;border-radius:10px;background:${col}22;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:18px">📧</div>
+      <div style="flex:1">
+        <div style="font-size:17px;font-weight:800">${c.mes}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">📌 ${c.asunto||'—'}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text2)">Enviada: ${c.fecha_envio||'—'}</div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-section">
+        <div class="detail-section-title">Entregabilidad</div>
+        ${mr('Enviadas',c.enviadas)}${mr('Entregadas',c.entregadas)}
+        ${mr('Índice de entrega',c.indice_entrega+'%',c.indice_entrega>=97?'good':c.indice_entrega>=90?'warn':'bad')}
+        ${mr('Soft bounces',`${c.soft_bounces} (${c.soft_bounces_pct}%)`,c.soft_bounces===0?'good':c.soft_bounces_pct<5?'warn':'bad')}
+        ${mr('Hard bounces',c.hard_bounces,c.hard_bounces===0?'good':'bad')}
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">Aperturas</div>
+        ${mr('Aperturas únicas',c.aperturas_unicas)}
+        ${mr('Tasa de apertura',c.tasa_apertura+'%',c.tasa_apertura>=60?'good':c.tasa_apertura>=40?'warn':'bad')}
+        ${mr('Total aperturas',c.total_aperturas)}
+        ${mr('Apple MPP',c.aperturas_apple_mpp)}
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">Engagement</div>
+        ${mr('Clics únicos',c.clics_unicos)}
+        ${mr('CTR',c.ctr+'%',c.ctr>=5?'good':c.ctr>=2?'warn':'bad')}
+        ${mr('Total clics',c.total_clics)}
+        ${mr('CTOR',c.click_to_open_rate+'%',c.click_to_open_rate>=10?'good':c.click_to_open_rate>=5?'warn':'bad')}
+        ${mr('Cancelaciones',c.cancelaciones_pct+'%',c.cancelaciones_pct===0?'good':'bad')}
+        ${mr('Spam',c.spam,c.spam===0?'good':'bad')}
+      </div>
+    </div>
+    ${c.listas?.length?`<div class="detail-section">
+      <div class="detail-section-title">Audiencia</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        ${c.listas.map(l=>`<div style="background:var(--black3);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12px"><strong style="color:${col}">${l.contactos}</strong> · ${l.nombre}</div>`).join('')}
+      </div></div>`:''}
+  `;
+
+  // update preview header
+  document.getElementById('previewMeta').textContent = c.asunto || c.mes;
+
+  if(!hasApiKey){
+    showPreviewState('no-key');
+    return;
+  }
+  if(!currentBrevoId){
+    showPreviewState('no-id');
+    return;
+  }
+  loadEmailPreview();
+}
+
+function mr(name,val,cls=''){
+  return `<div class="metric-row"><span class="metric-name">${name}</span><span class="metric-val ${cls}">${val}</span></div>`;
+}
+
+async function loadEmailPreview(){
+  if(!currentBrevoId || !hasApiKey) return;
+  showPreviewState('loading');
+  const iframe=document.getElementById('emailIframe');
+  iframe.onload=function(){
+    if(iframe.src!=='about:blank') showPreviewState('loaded');
+  };
+  iframe.src=`/api/brevo/preview/${currentBrevoId}?t=${Date.now()}`;
+  // show buttons
+  document.getElementById('previewRefreshBtn').style.display='';
+  document.getElementById('previewOpenBtn').style.display='';
+  // apply zoom
+  setZoom(document.getElementById('zoomSlider').value);
+}
+
+function showPreviewState(state){
+  const noKey=document.getElementById('previewNoKey');
+  const loading=document.getElementById('previewLoading');
+  const iframe=document.getElementById('emailIframe');
+  noKey.style.display='none'; loading.style.display='none'; iframe.style.display='none';
+  if(state==='no-key'){
+    noKey.innerHTML=`<div class="icon">🔌</div><div style="font-weight:700;color:var(--text)">Conectá tu API de Brevo</div><div>Para previsualizar el email<br>configurá la API key</div><button class="btn primary" onclick="openSettings()" style="margin-top:8px">Configurar API key</button>`;
+    noKey.style.display='flex';
+  } else if(state==='no-id'){
+    noKey.innerHTML=`<div class="icon">⚠️</div><div style="font-weight:700;color:var(--text)">ID de Brevo no asignado</div><div>Esta campaña fue cargada desde PDF.<br>Asignale el ID de Brevo para ver el email.</div>`;
+    noKey.style.display='flex';
+  } else if(state==='loading'){
+    loading.style.display='flex';
+  } else if(state==='loaded'){
+    iframe.style.display='block';
+    loading.style.display='none';
+    setZoom(document.getElementById('zoomSlider').value);
+  }
+}
+
+function setZoom(v){
+  const iframe=document.getElementById('emailIframe');
+  iframe.style.transform=`scale(${v/100})`;
+  iframe.style.transformOrigin='top center';
+  iframe.style.width=`${Math.round(10000/v)}%`;
+  iframe.style.marginLeft=`-${Math.round((10000/v-100)/2)}%`;
+  document.getElementById('zoomLabel').textContent=v+'%';
+}
+
+function openEmailFullscreen(){
+  if(currentBrevoId) window.open(`/api/brevo/preview/${currentBrevoId}`,'_blank');
+}
+
+// ── Compare view ──────────────────────────────────────────────────────────────
+function renderCompareView(){
+  if(!campaigns.length) return;
+  const labels=campaigns.map(c=>c.nombre);
+  const colors=campaigns.map((_,i)=>MONTH_COLORS[i%MONTH_COLORS.length]);
+
+  document.getElementById('comparLegend').innerHTML=campaigns.map((c,i)=>
+    `<span class="legend-chip" style="color:${colors[i]};border-color:${colors[i]};background:${colors[i]}18">
+      <span style="width:7px;height:7px;border-radius:50%;background:${colors[i]};display:inline-block"></span>${c.mes}
+    </span>`).join('');
+
+  destroyChart('chartGrouped');
+  const mKeys=[['tasa_apertura','Tasa apertura'],['ctr','CTR'],['click_to_open_rate','CTOR'],['indice_entrega','Entregabilidad']];
+  charts['chartGrouped']=new Chart(document.getElementById('chartGrouped'),{
+    type:'bar',
+    data:{
+      labels:mKeys.map(m=>m[1]),
+      datasets:campaigns.map((c,i)=>({
+        label:c.mes,data:mKeys.map(m=>c[m[0]]),
+        backgroundColor:colors[i]+'cc',borderColor:colors[i],borderWidth:2,borderRadius:5,
+      }))
+    },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:TC,font:{size:11},boxWidth:10,padding:14}},tooltip:{...TT,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.x}%`}},
+        datalabels:{display:true,anchor:'end',align:'end',color:TC,font:{size:10,weight:'700'},formatter:v=>v+'%',clamp:true},
+      },
+      scales:{x:{...xA,ticks:{...xA.ticks,callback:v=>v+'%'},beginAtZero:true,max:110},y:{...yA,ticks:{...yA.ticks,font:{size:12,weight:'600'}}}},
+      layout:{padding:{right:36}}
+    }
+  });
+
+  destroyChart('chartBarApertura');
+  charts['chartBarApertura']=new Chart(document.getElementById('chartBarApertura'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'Tasa de apertura (%)',data:campaigns.map(c=>c.tasa_apertura),backgroundColor:colors.map(c=>c+'cc'),borderColor:colors,borderWidth:2,borderRadius:7}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:TT,datalabels:{display:true,anchor:'end',align:'top',color:TC,font:{size:12,weight:'700'},formatter:v=>v+'%'}},
+      scales:{x:xA,y:{...yA,beginAtZero:true,max:100,ticks:{...yA.ticks,callback:v=>v+'%'}}}}
+  });
+
+  destroyChart('chartBarCtr');
+  charts['chartBarCtr']=new Chart(document.getElementById('chartBarCtr'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'CTR (%)',data:campaigns.map(c=>c.ctr),backgroundColor:colors.map(c=>c+'cc'),borderColor:colors,borderWidth:2,borderRadius:7}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:TT,datalabels:{display:true,anchor:'end',align:'top',color:TC,font:{size:12,weight:'700'},formatter:v=>v+'%'}},
+      scales:{x:xA,y:{...yA,beginAtZero:true,ticks:{...yA.ticks,callback:v=>v+'%'}}}}
+  });
+
+  destroyChart('chartCtor');
+  charts['chartCtor']=new Chart(document.getElementById('chartCtor'),{
+    type:'line',
+    data:{labels,datasets:[{label:'CTOR (%)',data:campaigns.map(c=>c.click_to_open_rate),borderColor:ORANGE,backgroundColor:'rgba(245,166,35,.15)',pointBackgroundColor:ORANGE,pointRadius:7,tension:0.4,fill:true,borderWidth:3}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:TT,datalabels:{display:true,align:'top',color:ORANGE,font:{size:12,weight:'800'},formatter:v=>v+'%'}},
+      scales:{x:xA,y:{ticks:{color:TC,font:{size:11},callback:v=>v+'%'},grid:{color:GC},border:{color:'#353535'},beginAtZero:true}}}
+  });
+
+  renderCompareInsights();
+}
+
+// ── Insights comparativos ─────────────────────────────────────────────────────
+function renderCompareInsights(){
+  if(campaigns.length < 2) return;
+  const el = document.getElementById('compareInsightsGrid');
+  if(!el) return;
+
+  const n = campaigns.length;
+  const last = campaigns[n-1];
+  const first = campaigns[0];
+  const prev  = campaigns[n-2];
+
+  const best_ap  = campaigns.reduce((a,b) => a.tasa_apertura  > b.tasa_apertura  ? a : b);
+  const worst_ap = campaigns.reduce((a,b) => a.tasa_apertura  < b.tasa_apertura  ? a : b);
+  const best_ctr = campaigns.reduce((a,b) => a.ctr            > b.ctr            ? a : b);
+  const best_ctor= campaigns.reduce((a,b) => a.click_to_open_rate > b.click_to_open_rate ? a : b);
+  const best_del = campaigns.reduce((a,b) => a.indice_entrega > b.indice_entrega ? a : b);
+  const worst_del= campaigns.reduce((a,b) => a.indice_entrega < b.indice_entrega ? a : b);
+
+  const avgAp  = (campaigns.reduce((s,c)=>s+c.tasa_apertura,0)/n).toFixed(1);
+  const avgCtr = (campaigns.reduce((s,c)=>s+c.ctr,0)/n).toFixed(1);
+  const avgCtor= (campaigns.reduce((s,c)=>s+c.click_to_open_rate,0)/n).toFixed(1);
+
+  const trendAp  = last.tasa_apertura  - prev.tasa_apertura;
+  const trendCtr = last.ctr            - prev.ctr;
+  const trendCtor= last.click_to_open_rate - prev.click_to_open_rate;
+
+  // Variación total entre primer y último mes
+  const varAp = last.tasa_apertura - first.tasa_apertura;
+
+  // Mes con más clics absolutos
+  const best_clics = campaigns.reduce((a,b) => a.clics_unicos > b.clics_unicos ? a : b);
+
+  // Soft bounces: peor mes
+  const worst_bounce = campaigns.reduce((a,b) => a.soft_bounces_pct > b.soft_bounces_pct ? a : b);
+
+  const ins = [
+    {
+      icon: trendAp >= 0 ? '📈' : '📉',
+      title: `Tendencia: apertura ${trendAp >= 0 ? '↑' : '↓'}`,
+      text: `De ${prev.nombre} a ${last.nombre} la apertura ${trendAp >= 0 ? 'subió' : 'bajó'} <span class="hl">${Math.abs(trendAp).toFixed(1)}%</span>. Promedio histórico: <span class="hl">${avgAp}%</span>.`
+    },
+    {
+      icon: '🏆',
+      title: 'Mejor mes de apertura',
+      text: `<span class="hl">${best_ap.mes}</span> lideró con <span class="hl">${best_ap.tasa_apertura}%</span>. El peor fue <span class="hl">${worst_ap.mes}</span> con ${worst_ap.tasa_apertura}% — diferencia de ${(best_ap.tasa_apertura - worst_ap.tasa_apertura).toFixed(1)}pp.`
+    },
+    {
+      icon: '🖱️',
+      title: 'Evolución de clics',
+      text: `CTR promedio: <span class="hl">${avgCtr}%</span>. El mayor fue <span class="hl">${best_ctr.mes}</span> con <span class="hl">${best_ctr.ctr}%</span> y ${best_clics.clics_unicos} clics únicos.`
+    },
+    {
+      icon: '🎯',
+      title: 'Engagement real (CTOR)',
+      text: `Promedio CTOR: <span class="hl">${avgCtor}%</span>. Mejor: <span class="hl">${best_ctor.mes}</span> con <span class="hl">${best_ctor.click_to_open_rate}%</span>. ${trendCtor >= 0 ? `Sube ${trendCtor.toFixed(1)}pp respecto al mes anterior.` : `Baja ${Math.abs(trendCtor).toFixed(1)}pp respecto al mes anterior.`}`
+    },
+    {
+      icon: '✉️',
+      title: 'Entregabilidad',
+      text: `Mejor índice: <span class="hl">${best_del.mes}</span> con <span class="hl">${best_del.indice_entrega}%</span>. ${worst_del.id !== best_del.id ? `Peor: <span class="hl">${worst_del.mes}</span> con ${worst_del.indice_entrega}% (${worst_del.soft_bounces} soft bounces).` : 'Entregabilidad consistente en todos los meses.'}`
+    },
+    {
+      icon: varAp >= 0 ? '🚀' : '⚠️',
+      title: 'Evolución total',
+      text: `Desde ${first.nombre} la apertura ${varAp >= 0 ? 'creció' : 'cayó'} <span class="hl">${Math.abs(varAp).toFixed(1)}pp</span> en ${n} meses. La lista pasó de <span class="hl">${first.enviadas}</span> a <span class="hl">${last.enviadas}</span> padrinos.`
+    }
+  ];
+
+  el.innerHTML = ins.map(i => `
+    <div class="insight-card">
+      <div class="insight-icon">${i.icon}</div>
+      <div><div class="insight-title">${i.title}</div><div class="insight-text">${i.text}</div></div>
+    </div>`).join('');
+}
+
+// ── View switching ────────────────────────────────────────────────────────────
+function switchView(view){
+  ['general','mes','comparar'].forEach(v=>{
+    document.getElementById('view-'+v).style.display=v===view?'':'none';
+  });
+  document.querySelectorAll('.view-tab').forEach((el,i)=>el.classList.toggle('active',['general','mes','comparar'][i]===view));
+  ['general','mes','comparar'].forEach(v=>{const b=document.getElementById('btn-'+v);if(b)b.classList.toggle('active',v===view)});
+  const titles={general:'Vista General',mes:'Detalle por Mes',comparar:'Comparar Meses'};
+  const subs={general:'Comparativa de todas las campañas de Padrinos',mes:'Métricas y preview del email por campaña',comparar:'Análisis cruzado de todos los meses'};
+  document.getElementById('pageTitle').textContent=titles[view];
+  document.getElementById('pageSubtitle').textContent=subs[view];
+  if(view==='mes' && selectedMonth){ renderMonthDetail(); if(hasApiKey && currentBrevoId) loadEmailPreview(); }
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function openSettings(){
+  document.getElementById('settingsModal').classList.add('open');
+  document.getElementById('modalStatus').className='modal-status';
+}
+function closeSettings(){document.getElementById('settingsModal').classList.remove('open')}
+document.getElementById('settingsModal').addEventListener('click',e=>{if(e.target.id==='settingsModal')closeSettings()});
+
+async function testBrevo(){
+  const key=document.getElementById('apiKeyInput').value.trim();
+  if(!key){setModalStatus('Ingresá una API key primero','err');return}
+  document.getElementById('testBtn').textContent='Probando...';
+  // save temporarily
+  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brevo_api_key:key})});
+  try{
+    const r=await fetch('/api/brevo/test');
+    const d=await r.json();
+    if(d.ok) setModalStatus(`✅ Conectado como ${d.email} (${d.company||'—'})`, 'ok');
+    else setModalStatus('❌ '+d.error,'err');
+  }catch(e){setModalStatus('❌ Error de conexión','err')}
+  document.getElementById('testBtn').textContent='Probar conexión';
+}
+
+async function saveSettings(){
+  const key=document.getElementById('apiKeyInput').value.trim();
+  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brevo_api_key:key})});
+  await checkApiStatus();
+  closeSettings();
+  showToast('✅ Configuración guardada','success');
+  if(selectedMonth) renderMonthDetail();
+}
+function setModalStatus(msg,cls){const el=document.getElementById('modalStatus');el.textContent=msg;el.className='modal-status '+cls}
+
+// ── Sync ──────────────────────────────────────────────────────────────────────
+async function syncBrevo(){
+  if(!hasApiKey){openSettings();return}
+  const btn=document.getElementById('syncBtn');
+  btn.classList.add('spinning');
+  try{
+    const r=await fetch('/api/brevo/sync',{method:'POST'});
+    const d=await r.json();
+    if(d.updated.length){
+      showToast(`✅ Sincronizados: ${d.updated.join(', ')}`, 'success');
+      await fetchCampaigns();
+    } else if(d.errors.length){
+      showToast('❌ '+d.errors[0].error, 'error');
+    } else {
+      showToast('Sin campañas con ID de Brevo asignado','');
+    }
+  }catch(e){showToast('❌ Error al sincronizar','error')}
+  btn.classList.remove('spinning');
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+async function handleFileUpload(file){
+  if(!file) return;
+  document.getElementById('loadingOverlay').style.display='flex';
+  const fd=new FormData(); fd.append('file',file);
+  try{
+    const r=await fetch('/api/upload',{method:'POST',body:fd});
+    const d=await r.json();
+    if(r.ok){showToast('✅ '+d.campaign.mes+' agregado','success');await fetchCampaigns()}
+    else showToast('❌ '+(d.error||'Error al procesar el PDF'),'error');
+  }catch(e){showToast('❌ Error de conexión','error')}
+  finally{document.getElementById('loadingOverlay').style.display='none';document.getElementById('fileInput').value=''}
+}
+
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show '+type;
+  setTimeout(()=>t.className='',3500);
+}
+
+// Drag & drop
+const ua=document.getElementById('uploadArea');
+ua.addEventListener('dragover',e=>{e.preventDefault();ua.classList.add('dragging')});
+ua.addEventListener('dragleave',()=>ua.classList.remove('dragging'));
+ua.addEventListener('drop',e=>{
+  e.preventDefault();ua.classList.remove('dragging');
+  const f=e.dataTransfer.files[0];
+  if(f?.name.endsWith('.pdf')) handleFileUpload(f);
+  else showToast('Solo se aceptan archivos PDF','error');
+});
+
+boot();
+</script>
+</body>
+</html>
