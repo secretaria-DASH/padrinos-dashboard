@@ -5,7 +5,7 @@ import requests
 from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 import pdfplumber
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder='static', template_folder='.')
 
 DATA_FILE   = os.path.join(os.path.dirname(__file__), 'data', 'campaigns.json')
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'data', 'config.json')
