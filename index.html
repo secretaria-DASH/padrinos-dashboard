@@ -299,7 +299,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
     <div class="logo-block">
-      <img src="/static/logo-masalla.jpg" alt="Más Allá" class="logo-img">
+      <img src="static/logo-masalla.jpg" alt="Más Allá" class="logo-img">
       <div class="logo-name">MÁS ALLÁ</div>
       <div class="logo-sub">Dashboard Padrinos</div>
     </div>
@@ -480,11 +480,17 @@ const TC  = '#888';
 const xA  = {ticks:{color:TC,font:{size:11}},grid:{color:GC},border:{color:'#353535'}};
 const yA  = {ticks:{color:TC,font:{size:11}},grid:{color:GC},border:{color:'#353535'}};
 
+const BREVO_API = 'https://api.brevo.com/v3';
+
 let campaigns = [];
 let selectedMonth = null;
 let charts = {};
 let hasApiKey = false;
 let currentBrevoId = null;
+let currentEmailHtml = null;
+
+function getApiKey(){ return localStorage.getItem('brevo_api_key') || ''; }
+function setApiKey(k){ localStorage.setItem('brevo_api_key', k); }
 
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
 function avg(arr,k){return arr.reduce((s,c)=>s+(c[k]||0),0)/arr.length}
@@ -496,24 +502,21 @@ async function boot(){
 }
 
 async function checkApiStatus(){
-  try{
-    const r = await fetch('/api/settings');
-    const d = await r.json();
-    hasApiKey = d.has_key;
-    const dot  = document.getElementById('apiDot');
-    const text = document.getElementById('apiPillText');
-    if(hasApiKey){
-      dot.className = 'api-dot connected';
-      text.textContent = `Brevo conectado (${d.key_preview})`;
-    } else {
-      dot.className = 'api-dot';
-      text.textContent = 'Configurar API key';
-    }
-  }catch(e){}
+  const key = getApiKey();
+  hasApiKey = Boolean(key);
+  const dot  = document.getElementById('apiDot');
+  const text = document.getElementById('apiPillText');
+  if(hasApiKey){
+    dot.className = 'api-dot connected';
+    text.textContent = `Brevo conectado (...${key.slice(-6)})`;
+  } else {
+    dot.className = 'api-dot';
+    text.textContent = 'Configurar API key';
+  }
 }
 
 async function fetchCampaigns(){
-  const r = await fetch('/api/campaigns');
+  const r = await fetch('data/campaigns.json');
   campaigns = await r.json();
   if(!selectedMonth && campaigns.length) selectedMonth = campaigns[campaigns.length-1].id;
   render();
@@ -796,16 +799,21 @@ function mr(name,val,cls=''){
 async function loadEmailPreview(){
   if(!currentBrevoId || !hasApiKey) return;
   showPreviewState('loading');
-  const iframe=document.getElementById('emailIframe');
-  iframe.onload=function(){
-    if(iframe.src!=='about:blank') showPreviewState('loaded');
-  };
-  iframe.src=`/api/brevo/preview/${currentBrevoId}?t=${Date.now()}`;
-  // show buttons
-  document.getElementById('previewRefreshBtn').style.display='';
-  document.getElementById('previewOpenBtn').style.display='';
-  // apply zoom
-  setZoom(document.getElementById('zoomSlider').value);
+  const key=getApiKey();
+  try{
+    const r=await fetch(`${BREVO_API}/emailCampaigns/${currentBrevoId}`,{headers:{'api-key':key,'Accept':'application/json'}});
+    const d=await r.json();
+    const inject='<base target="_blank"><style>body{font-family:Arial,sans-serif!important}*{max-width:100%!important;box-sizing:border-box}</style>';
+    let html=d.htmlContent||'<p>Sin contenido HTML disponible</p>';
+    html=html.includes('</head>')?html.replace('</head>',inject+'</head>'):inject+html;
+    currentEmailHtml=html;
+    const iframe=document.getElementById('emailIframe');
+    iframe.srcdoc=html;
+    showPreviewState('loaded');
+    document.getElementById('previewRefreshBtn').style.display='';
+    document.getElementById('previewOpenBtn').style.display='';
+    setZoom(document.getElementById('zoomSlider').value);
+  }catch(e){showPreviewState('no-key')}
 }
 
 function showPreviewState(state){
@@ -838,7 +846,9 @@ function setZoom(v){
 }
 
 function openEmailFullscreen(){
-  if(currentBrevoId) window.open(`/api/brevo/preview/${currentBrevoId}`,'_blank');
+  if(!currentEmailHtml) return;
+  const blob=new Blob([currentEmailHtml],{type:'text/html'});
+  window.open(URL.createObjectURL(blob),'_blank');
 }
 
 // ── Compare view ──────────────────────────────────────────────────────────────
@@ -995,6 +1005,7 @@ function switchView(view){
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 function openSettings(){
+  document.getElementById('apiKeyInput').value=getApiKey();
   document.getElementById('settingsModal').classList.add('open');
   document.getElementById('modalStatus').className='modal-status';
 }
@@ -1005,20 +1016,18 @@ async function testBrevo(){
   const key=document.getElementById('apiKeyInput').value.trim();
   if(!key){setModalStatus('Ingresá una API key primero','err');return}
   document.getElementById('testBtn').textContent='Probando...';
-  // save temporarily
-  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brevo_api_key:key})});
   try{
-    const r=await fetch('/api/brevo/test');
+    const r=await fetch(`${BREVO_API}/account`,{headers:{'api-key':key,'Accept':'application/json'}});
     const d=await r.json();
-    if(d.ok) setModalStatus(`✅ Conectado como ${d.email} (${d.company||'—'})`, 'ok');
-    else setModalStatus('❌ '+d.error,'err');
+    if(r.ok) setModalStatus(`✅ Conectado como ${d.email} (${d.companyName||'—'})`, 'ok');
+    else setModalStatus('❌ '+(d.message||'Clave inválida'),'err');
   }catch(e){setModalStatus('❌ Error de conexión','err')}
   document.getElementById('testBtn').textContent='Probar conexión';
 }
 
 async function saveSettings(){
   const key=document.getElementById('apiKeyInput').value.trim();
-  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brevo_api_key:key})});
+  setApiKey(key);
   await checkApiStatus();
   closeSettings();
   showToast('✅ Configuración guardada','success');
@@ -1029,19 +1038,40 @@ function setModalStatus(msg,cls){const el=document.getElementById('modalStatus')
 // ── Sync ──────────────────────────────────────────────────────────────────────
 async function syncBrevo(){
   if(!hasApiKey){openSettings();return}
+  const key=getApiKey();
   const btn=document.getElementById('syncBtn');
   btn.classList.add('spinning');
   try{
-    const r=await fetch('/api/brevo/sync',{method:'POST'});
-    const d=await r.json();
-    if(d.updated.length){
-      showToast(`✅ Sincronizados: ${d.updated.join(', ')}`, 'success');
-      await fetchCampaigns();
-    } else if(d.errors.length){
-      showToast('❌ '+d.errors[0].error, 'error');
-    } else {
-      showToast('Sin campañas con ID de Brevo asignado','');
+    const updated=[],errors=[];
+    for(const c of campaigns){
+      const bid=c.brevo_id;
+      if(!bid) continue;
+      try{
+        const r=await fetch(`${BREVO_API}/emailCampaigns/${bid}`,{headers:{'api-key':key,'Accept':'application/json'}});
+        const remote=await r.json();
+        const stats=remote.statistics?.globalStats||{};
+        const sent=stats.sent||c.enviadas, deliv=stats.delivered||c.entregadas;
+        c.enviadas=sent; c.entregadas=deliv;
+        c.indice_entrega=sent?+(deliv/sent*100).toFixed(2):c.indice_entrega;
+        c.soft_bounces=stats.softBounces??c.soft_bounces;
+        c.soft_bounces_pct=sent?+(c.soft_bounces/sent*100).toFixed(2):c.soft_bounces_pct;
+        c.hard_bounces=stats.hardBounces??c.hard_bounces;
+        c.aperturas_unicas=stats.uniqueViews??c.aperturas_unicas;
+        c.total_aperturas=stats.viewed??c.total_aperturas;
+        c.tasa_apertura=deliv?+(c.aperturas_unicas/deliv*100).toFixed(2):c.tasa_apertura;
+        c.clics_unicos=stats.uniqueClicks??c.clics_unicos;
+        c.total_clics=stats.clickers??c.total_clics;
+        c.ctr=deliv?+(c.clics_unicos/deliv*100).toFixed(2):c.ctr;
+        c.click_to_open_rate=c.aperturas_unicas?+(c.clics_unicos/c.aperturas_unicas*100).toFixed(2):c.click_to_open_rate;
+        c.cancelaciones_pct=deliv?+((stats.unsubscriptions||0)/deliv*100).toFixed(2):c.cancelaciones_pct;
+        c.spam=stats.complaints??c.spam;
+        c.asunto=remote.subject||c.asunto||'';
+        updated.push(c.mes);
+      }catch(e){errors.push(String(e))}
     }
+    if(updated.length){showToast(`✅ Sincronizados: ${updated.join(', ')}`,'success');render();}
+    else if(errors.length){showToast('❌ '+errors[0],'error');}
+    else showToast('Sin campañas con ID de Brevo asignado','');
   }catch(e){showToast('❌ Error al sincronizar','error')}
   btn.classList.remove('spinning');
 }
@@ -1049,15 +1079,8 @@ async function syncBrevo(){
 // ── Upload ────────────────────────────────────────────────────────────────────
 async function handleFileUpload(file){
   if(!file) return;
-  document.getElementById('loadingOverlay').style.display='flex';
-  const fd=new FormData(); fd.append('file',file);
-  try{
-    const r=await fetch('/api/upload',{method:'POST',body:fd});
-    const d=await r.json();
-    if(r.ok){showToast('✅ '+d.campaign.mes+' agregado','success');await fetchCampaigns()}
-    else showToast('❌ '+(d.error||'Error al procesar el PDF'),'error');
-  }catch(e){showToast('❌ Error de conexión','error')}
-  finally{document.getElementById('loadingOverlay').style.display='none';document.getElementById('fileInput').value=''}
+  showToast('⚠️ La carga de PDF no está disponible en la versión estática','error');
+  document.getElementById('fileInput').value='';
 }
 
 function showToast(msg,type=''){
